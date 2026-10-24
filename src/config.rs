@@ -108,6 +108,25 @@ pub struct Config {
 
 	#[serde(rename = "REDLIB_DEFAULT_REMOVE_DEFAULT_FEEDS")]
 	pub(crate) default_remove_default_feeds: Option<String>,
+
+	#[serde(rename = "REDLIB_REDDIT_CLIENT_ID")]
+	pub(crate) reddit_client_id: Option<String>,
+
+	#[serde(rename = "REDLIB_REDDIT_CLIENT_SECRET")]
+	pub(crate) reddit_client_secret: Option<String>,
+
+	#[serde(rename = "REDLIB_REDDIT_USERNAME")]
+	pub(crate) reddit_username: Option<String>,
+
+	#[serde(rename = "REDLIB_REDDIT_PASSWORD")]
+	pub(crate) reddit_password: Option<String>,
+
+	#[serde(rename = "REDLIB_REDDIT_SESSION")]
+	#[serde(alias = "REDLIB_REDDIT_COOKIE")]
+	pub(crate) reddit_session: Option<String>,
+
+	#[serde(rename = "REDLIB_REDDIT_BEARER_TOKEN")]
+	pub(crate) reddit_bearer_token: Option<String>,
 }
 
 impl Config {
@@ -156,6 +175,12 @@ impl Config {
 			enable_rss: parse("REDLIB_ENABLE_RSS"),
 			full_url: parse("REDLIB_FULL_URL"),
 			default_remove_default_feeds: parse("REDLIB_DEFAULT_REMOVE_DEFAULT_FEEDS"),
+			reddit_client_id: parse("REDLIB_REDDIT_CLIENT_ID"),
+			reddit_client_secret: parse("REDLIB_REDDIT_CLIENT_SECRET"),
+			reddit_username: parse("REDLIB_REDDIT_USERNAME"),
+			reddit_password: parse("REDLIB_REDDIT_PASSWORD"),
+			reddit_session: parse("REDLIB_REDDIT_SESSION").or_else(|| parse("REDLIB_REDDIT_COOKIE")),
+			reddit_bearer_token: parse("REDLIB_REDDIT_BEARER_TOKEN"),
 		}
 	}
 }
@@ -186,6 +211,12 @@ fn get_setting_from_config(name: &str, config: &Config) -> Option<String> {
 		"REDLIB_ENABLE_RSS" => config.enable_rss.clone(),
 		"REDLIB_FULL_URL" => config.full_url.clone(),
 		"REDLIB_DEFAULT_REMOVE_DEFAULT_FEEDS" => config.default_remove_default_feeds.clone(),
+		"REDLIB_REDDIT_CLIENT_ID" => config.reddit_client_id.clone(),
+		"REDLIB_REDDIT_CLIENT_SECRET" => config.reddit_client_secret.clone(),
+		"REDLIB_REDDIT_USERNAME" => config.reddit_username.clone(),
+		"REDLIB_REDDIT_PASSWORD" => config.reddit_password.clone(),
+		"REDLIB_REDDIT_SESSION" | "REDLIB_REDDIT_COOKIE" => config.reddit_session.clone(),
+		"REDLIB_REDDIT_BEARER_TOKEN" => config.reddit_bearer_token.clone(),
 		_ => None,
 	}
 }

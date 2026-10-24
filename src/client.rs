@@ -259,9 +259,19 @@ fn reddit_short_head(path: String, quarantine: bool, base_path: &'static str, ho
 /// will recurse on the URL that Reddit provides in the Location HTTP header
 /// in its response.
 fn request(method: &'static Method, path: String, redirect: bool, quarantine: bool, base_path: &'static str, host: &'static str) -> Boxed<Result<WreqResponse, String>> {
-	// Keep the logical path unchanged for caches and diagnostics. Reddit blocks
-	// literal anonymous comments routes, so only rewrite the outgoing URL.
-	let transport_path = comments_transport_path(&path);
+	let is_user_auth = {
+		let client = OAUTH_CLIENT.load();
+		client.is_authenticated()
+	} || crate::config::get_setting("REDLIB_REDDIT_SESSION").is_some()
+	  || crate::config::get_setting("REDLIB_REDDIT_COOKIE").is_some();
+
+	// Keep the logical path unchanged for caches and diagnostics.
+	// For authenticated requests, use standard paths. Reddit only blocked anonymous comments routes.
+	let transport_path = if is_user_auth {
+		Cow::Borrowed(path.as_str())
+	} else {
+		comments_transport_path(&path)
+	};
 	let url = format!("{base_path}{transport_path}");
 
 	let mut headers: Vec<(String, String)> = vec![
@@ -275,6 +285,21 @@ fn request(method: &'static Method, path: String, redirect: bool, quarantine: bo
 			},
 		),
 	];
+
+	if let Some(session_cookie) = crate::config::get_setting("REDLIB_REDDIT_SESSION").or_else(|| crate::config::get_setting("REDLIB_REDDIT_COOKIE")) {
+		let cookie_str = if session_cookie.contains('=') {
+			session_cookie
+		} else {
+			format!("reddit_session={session_cookie}")
+		};
+		if let Some(existing) = headers.iter_mut().find(|(k, _)| k == "Cookie") {
+			if existing.1.is_empty() {
+				existing.1 = cookie_str;
+			} else {
+				existing.1 = format!("{}; {}", existing.1, cookie_str);
+			}
+		}
+	}
 
 	{
 		let client = OAUTH_CLIENT.load_full();
@@ -535,9 +560,9 @@ async fn self_check(sub: &str) -> Result<(), String> {
 }
 
 pub async fn rate_limit_check() -> Result<(), String> {
-	// First, test the Oauth client: we can perform a rate limit check if the OAuth backend is MobileSpoof; if GenericWeb, we skip the check.
-	if matches!(OAUTH_CLIENT.load().backend, OauthBackendImpl::GenericWeb(_)) {
-		warn!("[⚠️] Cannot perform rate limit check, running as GenericWeb. Skipping check.");
+	// First, test the Oauth client: we can perform a rate limit check if the OAuth backend is MobileSpoof; for other backends, skip.
+	if !matches!(OAUTH_CLIENT.load().backend, OauthBackendImpl::MobileSpoof(_)) {
+		warn!("[⚠️] Cannot perform rate limit check on non-MobileSpoof backend. Skipping check.");
 		return Ok(());
 	}
 

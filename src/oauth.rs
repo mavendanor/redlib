@@ -35,6 +35,8 @@ trait OauthBackend: Send + Sync {
 pub(crate) enum OauthBackendImpl {
 	MobileSpoof(MobileSpoofAuth),
 	GenericWeb(GenericWebAuth),
+	UserAuth(UserAuth),
+	FixedToken(FixedTokenAuth),
 }
 
 impl OauthBackend for OauthBackendImpl {
@@ -42,6 +44,8 @@ impl OauthBackend for OauthBackendImpl {
 		match self {
 			OauthBackendImpl::MobileSpoof(backend) => backend.authenticate().await,
 			OauthBackendImpl::GenericWeb(backend) => backend.authenticate().await,
+			OauthBackendImpl::UserAuth(backend) => backend.authenticate().await,
+			OauthBackendImpl::FixedToken(backend) => backend.authenticate().await,
 		}
 	}
 
@@ -49,6 +53,8 @@ impl OauthBackend for OauthBackendImpl {
 		match self {
 			OauthBackendImpl::MobileSpoof(backend) => backend.user_agent(),
 			OauthBackendImpl::GenericWeb(backend) => backend.user_agent(),
+			OauthBackendImpl::UserAuth(backend) => backend.user_agent(),
+			OauthBackendImpl::FixedToken(backend) => backend.user_agent(),
 		}
 	}
 
@@ -56,6 +62,8 @@ impl OauthBackend for OauthBackendImpl {
 		match self {
 			OauthBackendImpl::MobileSpoof(backend) => backend.get_headers(),
 			OauthBackendImpl::GenericWeb(backend) => backend.get_headers(),
+			OauthBackendImpl::UserAuth(backend) => backend.get_headers(),
+			OauthBackendImpl::FixedToken(backend) => backend.get_headers(),
 		}
 	}
 }
@@ -71,6 +79,36 @@ pub struct Oauth {
 impl Oauth {
 	/// Create a new OAuth client
 	pub(crate) async fn new() -> Self {
+		use crate::config::get_setting;
+
+		// Check if user account credentials are provided
+		if let (Some(cid), Some(sec), Some(user), Some(pass)) = (
+			get_setting("REDLIB_REDDIT_CLIENT_ID"),
+			get_setting("REDLIB_REDDIT_CLIENT_SECRET"),
+			get_setting("REDLIB_REDDIT_USERNAME"),
+			get_setting("REDLIB_REDDIT_PASSWORD"),
+		) {
+			let backend = OauthBackendImpl::UserAuth(UserAuth::new(cid, sec, user, pass));
+			let attempt = Self::new_with_timeout_with_backend(backend.clone()).await;
+			match attempt {
+				Ok(Ok(oauth)) => {
+					info!("[✅] Successfully authenticated with Reddit account");
+					return oauth;
+				}
+				Ok(Err(e)) => {
+					error!("[⛔] Failed to authenticate with Reddit account: {:?}. Falling back to default auth...", e);
+				}
+				Err(_) => {
+					error!("[⛔] User auth timed out. Falling back to default auth...");
+				}
+			}
+		} else if let Some(token) = get_setting("REDLIB_REDDIT_BEARER_TOKEN") {
+			let backend = OauthBackendImpl::FixedToken(FixedTokenAuth::new(token));
+			if let Ok(Ok(oauth)) = Self::new_with_timeout_with_backend(backend).await {
+				return oauth;
+			}
+		}
+
 		// Try MobileSpoofAuth first, then fall back to GenericWebAuth
 		let mut failure_count = 0;
 		let mut backend = OauthBackendImpl::MobileSpoof(MobileSpoofAuth::new());
@@ -135,6 +173,10 @@ impl Oauth {
 
 	pub fn user_agent(&self) -> &str {
 		self.backend.user_agent()
+	}
+
+	pub fn is_authenticated(&self) -> bool {
+		matches!(self.backend, OauthBackendImpl::UserAuth(_) | OauthBackendImpl::FixedToken(_))
 	}
 }
 
@@ -469,6 +511,125 @@ fn choose<T: Copy>(list: &[T]) -> T {
 	*fastrand::choose_multiple(list.iter(), 1)[0]
 }
 
+// UserAuth backend - authenticates with user's own Reddit script app credentials
+#[derive(Debug, Clone)]
+pub struct UserAuth {
+	client_id: String,
+	client_secret: String,
+	username: String,
+	password: String,
+	user_agent: String,
+	additional_headers: HashMap<String, String>,
+}
+
+impl UserAuth {
+	pub fn new(client_id: String, client_secret: String, username: String, password: String) -> Self {
+		let user_agent = format!("Redlib/0.40.0 (by /u/{username})");
+		info!("[👤] Initializing UserAuth with Reddit account /u/{username}");
+		Self {
+			client_id,
+			client_secret,
+			username,
+			password,
+			user_agent,
+			additional_headers: HashMap::new(),
+		}
+	}
+}
+
+impl OauthBackend for UserAuth {
+	async fn authenticate(&mut self) -> Result<OauthResponse, AuthError> {
+		let url = "https://www.reddit.com/api/v1/access_token";
+		let mut builder = CLIENT.post(url);
+
+		let auth = general_purpose::STANDARD.encode(format!("{}:{}", self.client_id, self.client_secret));
+		builder = builder.header("Host", "www.reddit.com");
+		builder = builder.header("Authorization", format!("Basic {auth}"));
+		builder = builder.header("User-Agent", &self.user_agent);
+		builder = builder.header("Content-Type", "application/x-www-form-urlencoded");
+		builder = builder.header("Accept", "*/*");
+
+		let encoded_user: String = url::form_urlencoded::byte_serialize(self.username.as_bytes()).collect();
+		let encoded_pass: String = url::form_urlencoded::byte_serialize(self.password.as_bytes()).collect();
+		let body_str = format!("grant_type=password&username={encoded_user}&password={encoded_pass}");
+
+		trace!("Sending UserAuth token request to {url}...");
+
+		let resp: wreq::Response = builder.body(body_str).send().await?;
+		let json: serde_json::Value = resp.json().await?;
+
+		let token = json
+			.get("access_token")
+			.ok_or_else(|| AuthError::Field((json.clone(), "access_token")))?
+			.as_str()
+			.ok_or_else(|| AuthError::Field((json.clone(), "access_token: as_str")))?
+			.to_string();
+		let expires_in = json
+			.get("expires_in")
+			.and_then(|v| v.as_u64())
+			.unwrap_or(3600);
+
+		info!(
+			"[✅] UserAuth success - Retrieved authenticated token \"{}...\", expires in {}",
+			&token[..32.min(token.len())],
+			expires_in
+		);
+
+		self.additional_headers.insert("User-Agent".to_owned(), self.user_agent.to_owned());
+
+		Ok(OauthResponse {
+			token,
+			expires_in,
+			additional_headers: self.additional_headers.clone(),
+		})
+	}
+
+	fn user_agent(&self) -> &str {
+		&self.user_agent
+	}
+
+	fn get_headers(&self) -> HashMap<String, String> {
+		self.additional_headers.clone()
+	}
+}
+
+// FixedTokenAuth backend - uses a static bearer token
+#[derive(Debug, Clone)]
+pub struct FixedTokenAuth {
+	token: String,
+	user_agent: String,
+}
+
+impl FixedTokenAuth {
+	pub fn new(token: String) -> Self {
+		info!("[🔑] Initializing FixedTokenAuth with provided Bearer token");
+		Self {
+			token,
+			user_agent: fake_user_agent::get_rua().to_owned(),
+		}
+	}
+}
+
+impl OauthBackend for FixedTokenAuth {
+	async fn authenticate(&mut self) -> Result<OauthResponse, AuthError> {
+		Ok(OauthResponse {
+			token: self.token.clone(),
+			expires_in: 86400 * 365,
+			additional_headers: HashMap::new(),
+		})
+	}
+
+	fn user_agent(&self) -> &str {
+		&self.user_agent
+	}
+
+	fn get_headers(&self) -> HashMap<String, String> {
+		let mut headers = HashMap::new();
+		headers.insert("User-Agent".to_string(), self.user_agent.clone());
+		headers
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -529,8 +690,10 @@ mod tests {
 
 	#[test]
 	fn test_creating_backends() {
-		// Test that both backends can be created
+		// Test that all backends can be created
 		MobileSpoofAuth::new();
 		GenericWebAuth::new();
+		UserAuth::new("id".into(), "sec".into(), "user".into(), "pass".into());
+		FixedTokenAuth::new("tok".into());
 	}
 }
