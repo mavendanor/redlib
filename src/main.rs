@@ -12,7 +12,7 @@ use log::{info, warn};
 use redlib::client::{canonical_path, proxy, rate_limit_check, CLIENT};
 use redlib::server::{self, RequestExt};
 use redlib::utils::{error, redirect, ThemeAssets};
-use redlib::{config, duplicates, headers, instance_info, post, search, settings, subreddit, user};
+use redlib::{config, duplicates, headers, instance_info, post, search, settings, subreddit, user, version_check};
 
 use redlib::client::OAUTH_CLIENT;
 
@@ -203,6 +203,8 @@ async fn main() {
 	LazyLock::force(&instance_info::INSTANCE_INFO);
 	info!("Creating OAUTH client.");
 	LazyLock::force(&OAUTH_CLIENT);
+	info!("Starting background version checker.");
+	version_check::spawn_version_checker();
 
 	// Define default headers (added to all responses)
 	app.default_headers = headers! {

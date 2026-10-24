@@ -13,6 +13,26 @@
 
 {% block content %}
 <div id="settings">
+	{% let ver = crate::version_check::get_version_info() %}
+	<div class="prefs" style="margin-bottom: 20px; padding: 15px; border-radius: 6px; border: 1px solid var(--border-color, #444); background: var(--card-bg, rgba(255,255,255,0.03));">
+		<legend style="font-weight: bold; font-size: 1.1em; margin-bottom: 8px;">🏷️ Versión del Fork y Estado Upstream</legend>
+		<p style="margin: 5px 0;"><b>Versión actual del fork:</b> v{{ env!("CARGO_PKG_VERSION") }} (fork autenticado)</p>
+		<p style="margin: 5px 0;"><b>Versión oficial upstream:</b> {{ ver.latest_display() }}</p>
+		<p style="margin: 5px 0;"><b>Estado de sincronización:</b> 
+			{% if ver.has_update %}
+				<span style="color: #ffb86c; font-weight: bold;">⚠️ {{ ver.status_display() }}</span> — <a href="https://github.com/mavendanor/redlib" target="_blank" rel="noopener" style="text-decoration: underline;">Sincronizar fork en GitHub</a>
+			{% else if ver.is_checked %}
+				<span style="color: #50fa7b; font-weight: bold;">✔ {{ ver.status_display() }}</span>
+			{% else %}
+				<span style="opacity: 0.8;">⏳ {{ ver.status_display() }}</span>
+			{% endif %}
+		</p>
+		<p style="margin: 8px 0 0 0; font-size: 0.88em; opacity: 0.8;">
+			<a href="https://github.com/mavendanor/redlib" target="_blank" rel="noopener">&lt;&gt; Repositorio Fork</a> &bull; 
+			<a href="https://github.com/redlib-org/redlib" target="_blank" rel="noopener">Repositorio Oficial</a> &bull; 
+			<a href="/info">Información de la instancia</a>
+		</p>
+	</div>
 	<form action="/settings" method="POST">
 		<div class="prefs">
 			<fieldset>

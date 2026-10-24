@@ -116,10 +116,19 @@ impl InstanceInfo {
 			container.add_paragraph(banner);
 			container.add_raw("<br />");
 		}
+		let ver_info = crate::version_check::get_version_info();
+		let fork_version = format!("v{} (fork)", self.crate_version);
+		let latest_ver = ver_info.latest_display();
+		let sync_status = ver_info.status_display();
 		container.add_table(
 			Table::from([
 				["Package name", &self.package_name],
-				["Crate version", &self.crate_version],
+				["Crate version (fork)", &fork_version],
+				["Base version (official)", &self.crate_version],
+				["Latest official release", &latest_ver],
+				["Upstream sync status", &sync_status],
+				["Fork repository", crate::version_check::FORK_REPO],
+				["Upstream repository", crate::version_check::UPSTREAM_REPO],
 				["Git commit", &self.git_commit],
 				["Deploy date", &self.deploy_date],
 				["Deploy timestamp", &self.deploy_unix_ts.to_string()],
