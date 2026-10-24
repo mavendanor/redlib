@@ -45,6 +45,22 @@
 			</div>
 			{% block search %}{% endblock %}
 			<div id="links">
+				{% let ver = crate::version_check::get_version_info() %}
+				{% if ver.has_update %}
+					<a id="version_badge" href="https://github.com/mavendanor/redlib/compare/main...redlib-org:redlib:main?expand=1" target="_blank" rel="noopener" title="Nueva versión oficial ({{ ver.latest_display() }}) disponible. Clic para hacer Pull Request en GitHub." style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85em; background: rgba(255, 184, 108, 0.2); color: #ffb86c; border: 1px solid #ffb86c; text-decoration: none; margin-right: 6px;">
+						<span>⬆ Actualizar ({{ ver.latest_display() }})</span>
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M12 19V5M5 12l7-7 7 7"/>
+						</svg>
+					</a>
+				{% else if ver.is_checked %}
+					<a id="version_badge" href="/settings" title="Redlib v{{ env!("CARGO_PKG_VERSION") }} (al día con versión oficial {{ ver.latest_display() }})" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; opacity: 0.85; border: 1px solid var(--border-color, #444); color: inherit; text-decoration: none; margin-right: 6px;">
+						<span>✔ v{{ env!("CARGO_PKG_VERSION") }}</span>
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+							<polyline points="20 6 9 17 4 12"/>
+						</svg>
+					</a>
+				{% endif %}
 				<a id="reddit_link" {% if prefs.disable_visit_reddit_confirmation != "on" %}href="#popup"{% else %}href="https://www.reddit.com{{ url }}" rel="nofollow"{% endif %}>
 					<span>reddit</span>
 					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -81,7 +97,7 @@
 						<span id="version" title="Basado en Redlib oficial v{{ env!("CARGO_PKG_VERSION") }}">v{{ env!("CARGO_PKG_VERSION") }} (fork)</span>&emsp;
 						{% let ver = crate::version_check::get_version_info() %}
 						{% if ver.has_update %}
-							<a href="https://github.com/redlib-org/redlib/releases/latest" target="_blank" rel="noopener" style="color: #ffb86c; font-weight: bold;" title="Nueva versión oficial de Redlib disponible">⬆ Nueva versión oficial disponible ({{ ver.latest_display() }})</a>&emsp;
+							<a href="https://github.com/mavendanor/redlib/compare/main...redlib-org:redlib:main?expand=1" target="_blank" rel="noopener" style="color: #ffb86c; font-weight: bold;" title="Nueva versión oficial de Redlib disponible. Clic para hacer Pull Request.">⬆ Nueva versión oficial disponible ({{ ver.latest_display() }}) - Hacer Pull Request</a>&emsp;
 						{% else if ver.is_checked %}
 							<span style="opacity: 0.85;" title="Tu fork está basado en la versión oficial más reciente">✔ Oficial: {{ ver.latest_display() }} (al día)</span>&emsp;
 						{% else %}

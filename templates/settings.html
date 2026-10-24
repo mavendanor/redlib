@@ -20,7 +20,7 @@
 		<p style="margin: 5px 0;"><b>Versión oficial upstream:</b> {{ ver.latest_display() }}</p>
 		<p style="margin: 5px 0;"><b>Estado de sincronización:</b> 
 			{% if ver.has_update %}
-				<span style="color: #ffb86c; font-weight: bold;">⚠️ {{ ver.status_display() }}</span> — <a href="https://github.com/mavendanor/redlib" target="_blank" rel="noopener" style="text-decoration: underline;">Sincronizar fork en GitHub</a>
+				<span style="color: #ffb86c; font-weight: bold;">⚠️ {{ ver.status_display() }}</span> — <a href="https://github.com/mavendanor/redlib/compare/main...redlib-org:redlib:main?expand=1" target="_blank" rel="noopener" style="text-decoration: underline;">Hacer Pull Request en GitHub para actualizar</a>
 			{% else if ver.is_checked %}
 				<span style="color: #50fa7b; font-weight: bold;">✔ {{ ver.status_display() }}</span>
 			{% else %}
