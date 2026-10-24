@@ -293,6 +293,7 @@ async fn main() {
 	app.at("/user/:name/comments/:id/:title/:comment_id").get(|r| post::item(r).boxed());
 
 	// Configure settings
+	app.at("/comment").post(|r| post::comment_submit(r).boxed());
 	app.at("/settings").get(|r| settings::get(r).boxed()).post(|r| settings::set(r).boxed());
 	app.at("/settings/restore").get(|r| settings::restore(r).boxed());
 	app.at("/settings/encoded-restore").post(|r| settings::encoded_restore(r).boxed());

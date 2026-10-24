@@ -2,10 +2,12 @@ use crate::{
 	client::{CLIENT, OAUTH_CLIENT, OAUTH_IS_ROLLING_OVER, OAUTH_RATELIMIT_REMAINING},
 	oauth_resources::ANDROID_APP_VERSION_LIST,
 };
+use arc_swap::ArcSwap;
 use base64::{engine::general_purpose, Engine as _};
+use futures_lite::future::block_on;
 use log::{error, info, trace, warn};
 use serde_json::json;
-use std::{collections::HashMap, sync::atomic::Ordering, time::Duration};
+use std::{collections::HashMap, sync::atomic::Ordering, sync::LazyLock, time::Duration};
 use tegen::tegen::TextGenerator;
 use tokio::time::{error::Elapsed, timeout};
 
@@ -178,6 +180,44 @@ impl Oauth {
 	pub fn is_authenticated(&self) -> bool {
 		matches!(self.backend, OauthBackendImpl::UserAuth(_) | OauthBackendImpl::FixedToken(_))
 	}
+}
+
+pub static POSTER_CLIENT: LazyLock<Option<ArcSwap<Oauth>>> = LazyLock::new(|| {
+	use crate::config::get_setting;
+	if let (Some(cid), Some(sec), Some(user), Some(pass)) = (
+		get_setting("REDLIB_POSTER_CLIENT_ID"),
+		get_setting("REDLIB_POSTER_CLIENT_SECRET"),
+		get_setting("REDLIB_POSTER_USERNAME"),
+		get_setting("REDLIB_POSTER_PASSWORD"),
+	) {
+		let backend = OauthBackendImpl::UserAuth(UserAuth::new(cid, sec, user, pass));
+		let attempt = block_on(Oauth::new_with_timeout_with_backend(backend));
+		match attempt {
+			Ok(Ok(oauth)) => {
+				info!("[✍️] Poster OAuth client initialized successfully");
+				Some(ArcSwap::new(oauth.into()))
+			}
+			Ok(Err(e)) => {
+				error!("[⛔] Failed to initialize Poster OAuth: {:?}", e);
+				None
+			}
+			Err(_) => {
+				error!("[⛔] Poster OAuth timeout");
+				None
+			}
+		}
+	} else {
+		None
+	}
+});
+
+pub fn get_poster_auth() -> Option<(String, String)> {
+	POSTER_CLIENT.as_ref().map(|swap| {
+		let client = swap.load();
+		let token = client.headers_map.get("Authorization").cloned().unwrap_or_default();
+		let ua = client.user_agent().to_string();
+		(token, ua)
+	})
 }
 
 #[derive(Debug)]

@@ -127,6 +127,18 @@ pub struct Config {
 
 	#[serde(rename = "REDLIB_REDDIT_BEARER_TOKEN")]
 	pub(crate) reddit_bearer_token: Option<String>,
+
+	#[serde(rename = "REDLIB_POSTER_CLIENT_ID")]
+	pub(crate) poster_client_id: Option<String>,
+
+	#[serde(rename = "REDLIB_POSTER_CLIENT_SECRET")]
+	pub(crate) poster_client_secret: Option<String>,
+
+	#[serde(rename = "REDLIB_POSTER_USERNAME")]
+	pub(crate) poster_username: Option<String>,
+
+	#[serde(rename = "REDLIB_POSTER_PASSWORD")]
+	pub(crate) poster_password: Option<String>,
 }
 
 impl Config {
@@ -175,12 +187,16 @@ impl Config {
 			enable_rss: parse("REDLIB_ENABLE_RSS"),
 			full_url: parse("REDLIB_FULL_URL"),
 			default_remove_default_feeds: parse("REDLIB_DEFAULT_REMOVE_DEFAULT_FEEDS"),
-			reddit_client_id: parse("REDLIB_REDDIT_CLIENT_ID"),
-			reddit_client_secret: parse("REDLIB_REDDIT_CLIENT_SECRET"),
-			reddit_username: parse("REDLIB_REDDIT_USERNAME"),
-			reddit_password: parse("REDLIB_REDDIT_PASSWORD"),
+			reddit_client_id: parse("REDLIB_READER_CLIENT_ID").or_else(|| parse("REDLIB_REDDIT_CLIENT_ID")),
+			reddit_client_secret: parse("REDLIB_READER_CLIENT_SECRET").or_else(|| parse("REDLIB_REDDIT_CLIENT_SECRET")),
+			reddit_username: parse("REDLIB_READER_USERNAME").or_else(|| parse("REDLIB_REDDIT_USERNAME")),
+			reddit_password: parse("REDLIB_READER_PASSWORD").or_else(|| parse("REDLIB_REDDIT_PASSWORD")),
 			reddit_session: parse("REDLIB_REDDIT_SESSION").or_else(|| parse("REDLIB_REDDIT_COOKIE")),
 			reddit_bearer_token: parse("REDLIB_REDDIT_BEARER_TOKEN"),
+			poster_client_id: parse("REDLIB_POSTER_CLIENT_ID"),
+			poster_client_secret: parse("REDLIB_POSTER_CLIENT_SECRET"),
+			poster_username: parse("REDLIB_POSTER_USERNAME"),
+			poster_password: parse("REDLIB_POSTER_PASSWORD"),
 		}
 	}
 }
@@ -211,12 +227,16 @@ fn get_setting_from_config(name: &str, config: &Config) -> Option<String> {
 		"REDLIB_ENABLE_RSS" => config.enable_rss.clone(),
 		"REDLIB_FULL_URL" => config.full_url.clone(),
 		"REDLIB_DEFAULT_REMOVE_DEFAULT_FEEDS" => config.default_remove_default_feeds.clone(),
-		"REDLIB_REDDIT_CLIENT_ID" => config.reddit_client_id.clone(),
-		"REDLIB_REDDIT_CLIENT_SECRET" => config.reddit_client_secret.clone(),
-		"REDLIB_REDDIT_USERNAME" => config.reddit_username.clone(),
-		"REDLIB_REDDIT_PASSWORD" => config.reddit_password.clone(),
+		"REDLIB_REDDIT_CLIENT_ID" | "REDLIB_READER_CLIENT_ID" => config.reddit_client_id.clone(),
+		"REDLIB_REDDIT_CLIENT_SECRET" | "REDLIB_READER_CLIENT_SECRET" => config.reddit_client_secret.clone(),
+		"REDLIB_REDDIT_USERNAME" | "REDLIB_READER_USERNAME" => config.reddit_username.clone(),
+		"REDLIB_REDDIT_PASSWORD" | "REDLIB_READER_PASSWORD" => config.reddit_password.clone(),
 		"REDLIB_REDDIT_SESSION" | "REDLIB_REDDIT_COOKIE" => config.reddit_session.clone(),
 		"REDLIB_REDDIT_BEARER_TOKEN" => config.reddit_bearer_token.clone(),
+		"REDLIB_POSTER_CLIENT_ID" => config.poster_client_id.clone().or_else(|| config.reddit_client_id.clone()),
+		"REDLIB_POSTER_CLIENT_SECRET" => config.poster_client_secret.clone().or_else(|| config.reddit_client_secret.clone()),
+		"REDLIB_POSTER_USERNAME" => config.poster_username.clone().or_else(|| config.reddit_username.clone()),
+		"REDLIB_POSTER_PASSWORD" => config.poster_password.clone().or_else(|| config.reddit_password.clone()),
 		_ => None,
 	}
 }

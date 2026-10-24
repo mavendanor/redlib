@@ -51,6 +51,18 @@
 	<div id="column_one">
 		{% call utils::post(post) %}
 
+		<details class="comment_reply_box" style="margin: 15px 0; padding: 10px; border: 1px solid var(--border-color, #444); border-radius: 6px;">
+			<summary style="cursor: pointer; font-weight: bold; padding: 5px;">✍️ Escribir un comentario</summary>
+			<form action="/comment" method="post" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+				<input type="hidden" name="thing_id" value="t3_{{ post.id }}">
+				<input type="hidden" name="return_to" value="{{ url_without_query }}">
+				<textarea name="text" rows="4" style="width: 100%; border-radius: 4px; padding: 8px; font-family: inherit;" placeholder="Escribe tu comentario aquí (Markdown soportado)..." required></textarea>
+				<div style="display: flex; justify-content: flex-end;">
+					<button type="submit" style="padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">Publicar</button>
+				</div>
+			</form>
+		</details>
+
 		<!-- SORT FORM -->
        <div id="commentQueryForms">
 		<form id="sort">

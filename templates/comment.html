@@ -40,6 +40,17 @@
 		{% else %}
 		<div class="comment_body {% if highlighted %}highlighted{% endif %}">{{ body|safe }}</div>
 		{% endif %}
+		<details class="reply_form_container" style="margin: 6px 0;">
+			<summary style="cursor: pointer; font-size: 0.85em; opacity: 0.8; user-select: none;">💬 Responder</summary>
+			<form action="/comment" method="post" style="margin-top: 6px; display: flex; flex-direction: column; gap: 6px;">
+				<input type="hidden" name="thing_id" value="t1_{{ id }}">
+				<input type="hidden" name="return_to" value="{{ post_link }}">
+				<textarea name="text" rows="3" style="width: 100%; border-radius: 4px; padding: 6px; font-family: inherit; font-size: 0.9em;" placeholder="Escribe tu respuesta..." required></textarea>
+				<div style="display: flex; justify-content: flex-end;">
+					<button type="submit" style="padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">Enviar</button>
+				</div>
+			</form>
+		</details>
 		<blockquote class="replies">{% for c in replies -%}{{ c.render().unwrap()|safe }}{%- endfor %}
 		</blockquote>
 	</details>

@@ -252,3 +252,67 @@ fn build_comment(
 		prefs: Preferences::new(req),
 	}
 }
+
+pub async fn comment_submit(mut req: Request<Body>) -> Result<Response<Body>, String> {
+	use crate::client::CLIENT;
+	use crate::oauth::get_poster_auth;
+	use crate::utils::redirect;
+	use log::{error, info};
+
+	let (auth_header, user_agent) = match get_poster_auth() {
+		Some(auth) if !auth.0.is_empty() => auth,
+		_ => {
+			return error(req, "No se ha configurado una cuenta de Reddit para responder o publicar.").await;
+		}
+	};
+
+	let bytes = match hyper::body::to_bytes(req.body_mut()).await {
+		Ok(b) => b,
+		Err(e) => return error(req, &format!("Error al leer el formulario: {e}")).await,
+	};
+
+	let params: HashMap<String, String> = url::form_urlencoded::parse(&bytes)
+		.into_owned()
+		.collect();
+
+	let thing_id = match params.get("thing_id") {
+		Some(id) if !id.trim().is_empty() => id.trim(),
+		_ => return error(req, "ID de publicación o comentario inválido.").await,
+	};
+
+	let text = match params.get("text") {
+		Some(t) if !t.trim().is_empty() => t.trim(),
+		_ => return error(req, "El texto del comentario no puede estar vacío.").await,
+	};
+
+	let return_to = params.get("return_to").cloned().unwrap_or_else(|| "/".to_string());
+
+	let url = "https://oauth.reddit.com/api/comment";
+	let mut builder = CLIENT.post(url);
+	builder = builder.header("Authorization", &auth_header);
+	builder = builder.header("User-Agent", &user_agent);
+	builder = builder.header("Content-Type", "application/x-www-form-urlencoded");
+
+	let encoded_thing: String = url::form_urlencoded::byte_serialize(thing_id.as_bytes()).collect();
+	let encoded_text: String = url::form_urlencoded::byte_serialize(text.as_bytes()).collect();
+	let body_str = format!("api_type=json&thing_id={encoded_thing}&text={encoded_text}");
+
+	info!("[✍️] Enviando comentario a Reddit para {}", thing_id);
+
+	match builder.body(body_str).send().await {
+		Ok(resp) => {
+			if resp.status().is_success() {
+				info!("[✅] Comentario publicado exitosamente en Reddit!");
+				Ok(redirect(&return_to))
+			} else {
+				let status = resp.status();
+				error!("[⛔] Error de Reddit al comentar: status {}", status);
+				error(req, &format!("Reddit rechazó el comentario (Status {status})")).await
+			}
+		}
+		Err(e) => {
+			error!("[⛔] Error de conexión al enviar comentario: {}", e);
+			error(req, &format!("No se pudo conectar con Reddit para comentar: {e}")).await
+		}
+	}
+}
