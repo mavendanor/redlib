@@ -203,6 +203,8 @@ async fn main() {
 	LazyLock::force(&instance_info::INSTANCE_INFO);
 	info!("Creating OAUTH client.");
 	LazyLock::force(&OAUTH_CLIENT);
+	info!("Initializing poster auth.");
+	redlib::oauth::init_poster_auth().await;
 	info!("Starting background version checker.");
 	version_check::spawn_version_checker();
 

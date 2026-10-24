@@ -182,7 +182,11 @@ impl Oauth {
 	}
 }
 
-pub static POSTER_CLIENT: LazyLock<Option<ArcSwap<Oauth>>> = LazyLock::new(|| {
+pub static POSTER_AUTH: LazyLock<tokio::sync::RwLock<Option<Oauth>>> = LazyLock::new(|| {
+	tokio::sync::RwLock::new(None)
+});
+
+pub async fn init_poster_auth() {
 	use crate::config::get_setting;
 	if let (Some(cid), Some(sec), Some(user), Some(pass)) = (
 		get_setting("REDLIB_POSTER_CLIENT_ID"),
@@ -190,30 +194,38 @@ pub static POSTER_CLIENT: LazyLock<Option<ArcSwap<Oauth>>> = LazyLock::new(|| {
 		get_setting("REDLIB_POSTER_USERNAME"),
 		get_setting("REDLIB_POSTER_PASSWORD"),
 	) {
+		info!("[🔑] Initializing poster OAuth for /u/{user}...");
 		let backend = OauthBackendImpl::UserAuth(UserAuth::new(cid, sec, user, pass));
-		let attempt = block_on(Oauth::new_with_timeout_with_backend(backend));
-		match attempt {
+		match Oauth::new_with_timeout_with_backend(backend).await {
 			Ok(Ok(oauth)) => {
 				info!("[✍️] Poster OAuth client initialized successfully");
-				Some(ArcSwap::new(oauth.into()))
+				let mut lock = POSTER_AUTH.write().await;
+				*lock = Some(oauth);
 			}
 			Ok(Err(e)) => {
 				error!("[⛔] Failed to initialize Poster OAuth: {:?}", e);
-				None
 			}
 			Err(_) => {
 				error!("[⛔] Poster OAuth timeout");
-				None
 			}
 		}
-	} else {
-		None
 	}
-});
+}
 
-pub fn get_poster_auth() -> Option<(String, String)> {
-	POSTER_CLIENT.as_ref().map(|swap| {
-		let client = swap.load();
+pub async fn get_poster_auth() -> Option<(String, String)> {
+	{
+		let lock = POSTER_AUTH.read().await;
+		if let Some(client) = lock.as_ref() {
+			let token = client.headers_map.get("Authorization").cloned().unwrap_or_default();
+			let ua = client.user_agent().to_string();
+			return Some((token, ua));
+		}
+	}
+
+	init_poster_auth().await;
+
+	let lock = POSTER_AUTH.read().await;
+	lock.as_ref().map(|client| {
 		let token = client.headers_map.get("Authorization").cloned().unwrap_or_default();
 		let ua = client.user_agent().to_string();
 		(token, ua)

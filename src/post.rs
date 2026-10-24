@@ -259,7 +259,7 @@ pub async fn comment_submit(mut req: Request<Body>) -> Result<Response<Body>, St
 	use crate::utils::redirect;
 	use log::{error, info};
 
-	let (auth_header, user_agent) = match get_poster_auth() {
+	let (auth_header, user_agent) = match get_poster_auth().await {
 		Some(auth) if !auth.0.is_empty() => auth,
 		_ => {
 			return error(req, "No se ha configurado una cuenta de Reddit para responder o publicar.").await;
@@ -301,17 +301,34 @@ pub async fn comment_submit(mut req: Request<Body>) -> Result<Response<Body>, St
 
 	match builder.body(body_str).send().await {
 		Ok(resp) => {
-			if resp.status().is_success() {
-				info!("[✅] Comentario publicado exitosamente en Reddit!");
-				Ok(redirect(&return_to))
+			let status = resp.status();
+			if status.is_success() {
+				match resp.text().await {
+					Ok(text) => {
+						if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+							if let Some(errors) = json.get("json").and_then(|j| j.get("errors")).and_then(|e| e.as_array()) {
+								if !errors.is_empty() {
+									let err_msg = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ");
+									error!("[⛔] Reddit devolvió error en respuesta: {err_msg}");
+									return error(req, &format!("Reddit rechazó el comentario: {err_msg}")).await;
+								}
+							}
+						}
+						info!("[✅] Comentario publicado exitosamente en Reddit!");
+						Ok(redirect(&return_to))
+					}
+					Err(e) => {
+						error!("[⚠️] No se pudo leer respuesta de Reddit: {e}");
+						Ok(redirect(&return_to))
+					}
+				}
 			} else {
-				let status = resp.status();
-				error!("[⛔] Error de Reddit al comentar: status {}", status);
-				error(req, &format!("Reddit rechazó el comentario (Status {status})")).await
+				error!("[⛔] Error de Reddit al comentar: status {status}");
+				error(req, &format!("Reddit rechazó la solicitud (HTTP {status})")).await
 			}
 		}
 		Err(e) => {
-			error!("[⛔] Error de conexión al enviar comentario: {}", e);
+			error!("[⛔] Error de conexión al enviar comentario: {e}");
 			error(req, &format!("No se pudo conectar con Reddit para comentar: {e}")).await
 		}
 	}
