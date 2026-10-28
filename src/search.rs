@@ -81,7 +81,7 @@ pub async fn find(req: Request<Body>) -> Result<Response<Body>, String> {
 		return Ok(redirect(&format!("/user{}", &query[1..])));
 	}
 
-	if query.starts_with("s/") || query.starts_with("comments/") || query.starts_with("gallery/") || query.starts_with("poll/") {
+	if query.starts_with("s/") || query.starts_with("comments/") || query.starts_with("gallery/") || query.starts_with("poll/") || query.starts_with("link/") || query.starts_with("post/") {
 		return Ok(redirect(&format!("/{query}")));
 	}
 

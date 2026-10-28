@@ -390,6 +390,44 @@ async fn main() {
 		})
 	});
 
+	// Handle /link/:id and /link/:id/*rest (e.g. video player embed URLs in posts)
+	app.at("/link/:id").get(|req: Request<Body>| {
+		Box::pin(async move {
+			match req.param("id").as_deref() {
+				Some(id) if !id.is_empty() => Ok(redirect(&format!("/comments/{id}"))),
+				_ => error(req, "Nothing here").await,
+			}
+		})
+	});
+
+	app.at("/link/:id/*rest").get(|req: Request<Body>| {
+		Box::pin(async move {
+			match req.param("id").as_deref() {
+				Some(id) if !id.is_empty() => Ok(redirect(&format!("/comments/{id}"))),
+				_ => error(req, "Nothing here").await,
+			}
+		})
+	});
+
+	// Handle /post/:id and /post/:id/*rest
+	app.at("/post/:id").get(|req: Request<Body>| {
+		Box::pin(async move {
+			match req.param("id").as_deref() {
+				Some(id) if !id.is_empty() => Ok(redirect(&format!("/comments/{id}"))),
+				_ => error(req, "Nothing here").await,
+			}
+		})
+	});
+
+	app.at("/post/:id/*rest").get(|req: Request<Body>| {
+		Box::pin(async move {
+			match req.param("id").as_deref() {
+				Some(id) if !id.is_empty() => Ok(redirect(&format!("/comments/{id}"))),
+				_ => error(req, "Nothing here").await,
+			}
+		})
+	});
+
 	// Handle global share links /s/:id (from Reddit mobile apps)
 	app.at("/s/:id").get(|req: Request<Body>| {
 		Box::pin(async move {
