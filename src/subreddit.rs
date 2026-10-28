@@ -1,13 +1,15 @@
 #![allow(clippy::cmp_owned)]
 
 use crate::utils::{
-	catch_random, error, filter_posts, format_num, format_url, get_filters, info, nsfw_landing, param, redirect, rewrite_urls, setting, template, to_absolute_url, val, Post,
+	catch_random, decode_flair_filter, encode_flair_filter, error, filter_posts, format_num, format_url, get_filters, info, nsfw_landing, param, redirect, rewrite_urls, setting, template, to_absolute_url, val, Post,
 	Preferences, Subreddit,
 };
 use crate::{client::json, server::RequestExt, server::ResponseExt};
 use crate::{config, utils};
 use askama::Template;
 use cookie::Cookie;
+use std::collections::HashMap;
+use url::form_urlencoded;
 use htmlescape::decode_html;
 use hyper::{Body, Request, Response};
 
@@ -307,7 +309,7 @@ pub async fn subscriptions_filters(req: Request<Body>) -> Result<Response<Body>,
 	for part in sub.split('+').filter(|x| x != &"") {
 		// Retrieve display name for the subreddit
 		let display;
-		let part = if part.starts_with("u_") {
+		let part = if part.starts_with("u_") || part.starts_with("flair:") {
 			part
 		} else if let Some(&(_, display)) = display_lookup.iter().find(|x| x.0 == part.to_lowercase()) {
 			// This is already known, doesn't require separate request
@@ -406,27 +408,22 @@ pub async fn subscriptions_filters(req: Request<Body>) -> Result<Response<Body>,
 		}
 	}
 
-	// If filters is empty remove all filters cookies, otherwise update them and remove old ones
+	set_filters_cookies(&req, &mut response, &filters);
+
+	Ok(response)
+}
+
+pub fn set_filters_cookies(req: &Request<Body>, response: &mut Response<Body>, filters: &[String]) {
 	if filters.is_empty() {
-		// Remove filters cookie
 		response.remove_cookie("filters".to_string());
-
-		// Start with first numbered filters cookie
 		let mut filters_number = 1;
-
-		// While whatever filtersNUMBER cookie we're looking at has a value
 		while req.cookie(&format!("filters{filters_number}")).is_some() {
-			// Remove that filters cookie
 			response.remove_cookie(format!("filters{filters_number}"));
-
-			// Increment filters cookie number
 			filters_number += 1;
 		}
 	} else {
-		// Start at 0 to keep track of what number we need to start deleting old filters cookies from
 		let mut filters_number_to_delete_from = 0;
-
-		for (filters_number, list) in join_until_size_limit(&filters).into_iter().enumerate() {
+		for (filters_number, list) in join_until_size_limit(filters).into_iter().enumerate() {
 			let filters_cookie = if filters_number == 0 {
 				"filters".to_string()
 			} else {
@@ -440,20 +437,103 @@ pub async fn subscriptions_filters(req: Request<Body>) -> Result<Response<Body>,
 					.expires(OffsetDateTime::now_utc() + Duration::weeks(52))
 					.into(),
 			);
-
 			filters_number_to_delete_from += 1;
 		}
 
-		// While whatever filtersNUMBER cookie we're looking at has a value
 		while req.cookie(&format!("filters{filters_number_to_delete_from}")).is_some() {
-			// Remove that filters cookie
 			response.remove_cookie(format!("filters{filters_number_to_delete_from}"));
-
-			// Increment filters cookie number
 			filters_number_to_delete_from += 1;
 		}
 	}
+}
 
+pub async fn filter_flair(mut req: Request<Body>) -> Result<Response<Body>, String> {
+	let sub_param = req.param("sub").unwrap_or_default();
+	let query_str = req.uri().query().unwrap_or_default().to_string();
+	let query_params: HashMap<String, String> = form_urlencoded::parse(query_str.as_bytes()).into_owned().collect();
+
+	let body_bytes = hyper::body::to_bytes(req.body_mut())
+		.await
+		.unwrap_or_default();
+	let form_params: HashMap<String, String> = form_urlencoded::parse(&body_bytes).into_owned().collect();
+
+	let sub = form_params.get("sub")
+		.or_else(|| query_params.get("sub"))
+		.map(|s| s.as_str())
+		.unwrap_or(&sub_param);
+
+	let flair = form_params.get("flair")
+		.or_else(|| query_params.get("flair"))
+		.map(|s| s.as_str())
+		.unwrap_or_default();
+
+	if sub.is_empty() || flair.is_empty() {
+		return Err("Subreddit and flair must not be empty".to_string());
+	}
+
+	let preferences = Preferences::new(&req);
+	let mut filters = preferences.filters;
+
+	let flair_key = encode_flair_filter(sub, flair);
+	if !filters.iter().any(|f| f.to_lowercase() == flair_key) {
+		filters.push(flair_key);
+		filters.sort_by_key(|a| a.to_lowercase());
+	}
+
+	let redirect_to = form_params.get("redirect")
+		.or_else(|| query_params.get("redirect"))
+		.map(|r| format!("/{r}"))
+		.or_else(|| req.headers().get("Referer").and_then(|h| h.to_str().ok()).map(String::from))
+		.unwrap_or_else(|| format!("/r/{sub}"));
+
+	let mut response = redirect(&redirect_to);
+	set_filters_cookies(&req, &mut response, &filters);
+	Ok(response)
+}
+
+pub async fn unfilter_flair(mut req: Request<Body>) -> Result<Response<Body>, String> {
+	let sub_param = req.param("sub").unwrap_or_default();
+	let query_str = req.uri().query().unwrap_or_default().to_string();
+	let query_params: HashMap<String, String> = form_urlencoded::parse(query_str.as_bytes()).into_owned().collect();
+
+	let body_bytes = hyper::body::to_bytes(req.body_mut())
+		.await
+		.unwrap_or_default();
+	let form_params: HashMap<String, String> = form_urlencoded::parse(&body_bytes).into_owned().collect();
+
+	let filter_item = form_params.get("filter")
+		.or_else(|| query_params.get("filter"))
+		.cloned();
+
+	let preferences = Preferences::new(&req);
+	let mut filters = preferences.filters;
+
+	if let Some(item) = filter_item {
+		let item_lower = item.to_lowercase();
+		filters.retain(|f| f.to_lowercase() != item_lower);
+	} else {
+		let sub = form_params.get("sub")
+			.or_else(|| query_params.get("sub"))
+			.map(|s| s.as_str())
+			.unwrap_or(&sub_param);
+
+		let flair = form_params.get("flair")
+			.or_else(|| query_params.get("flair"))
+			.map(|s| s.as_str())
+			.unwrap_or_default();
+
+		let flair_key = encode_flair_filter(sub, flair);
+		filters.retain(|f| f.to_lowercase() != flair_key);
+	}
+
+	let redirect_to = form_params.get("redirect")
+		.or_else(|| query_params.get("redirect"))
+		.map(|r| format!("/{r}"))
+		.or_else(|| req.headers().get("Referer").and_then(|h| h.to_str().ok()).map(String::from))
+		.unwrap_or_else(|| format!("/r/{sub_param}"));
+
+	let mut response = redirect(&redirect_to);
+	set_filters_cookies(&req, &mut response, &filters);
 	Ok(response)
 }
 

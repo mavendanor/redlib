@@ -2150,3 +2150,140 @@ th {
     background-color: var(--accent);
     color: var(--text);
 }
+
+
+/* Flair Filtering Styles */
+.post_flair_wrapper {
+    display: inline-flex;
+    align-items: stretch;
+    vertical-align: text-top;
+    margin-right: 5px;
+}
+
+.post_flair_wrapper .post_flair {
+    margin-right: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.flair_filter_form {
+    display: inline-flex;
+    margin: 0;
+    padding: 0;
+}
+
+.flair_filter_btn {
+    background: var(--foreground);
+    color: var(--text-color);
+    border: none;
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+    padding: 0 5px;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flair_filter_btn:hover {
+    opacity: 1;
+    background: #e02424;
+    color: #fff;
+}
+
+#sub_flair_filter_section {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+}
+
+.sidebar_flair_filter_row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    margin: 4px 0;
+    padding: 3px 6px;
+    background: var(--foreground);
+    border-radius: 4px;
+}
+
+.sidebar_flair_name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 130px;
+}
+
+.unfilter_small {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    font-size: 11px;
+    padding: 2px 5px;
+    cursor: pointer;
+}
+
+.unfilter_small:hover {
+    background: var(--accent);
+    color: var(--background);
+}
+
+.sidebar_flair_details {
+    margin-top: 6px;
+    font-size: 12px;
+}
+
+.sidebar_flair_details summary {
+    cursor: pointer;
+    color: var(--accent);
+    margin-bottom: 4px;
+}
+
+.sidebar_flair_form {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.sidebar_flair_input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--text-color);
+    font-size: 12px;
+}
+
+#settings_flair_filter {
+    margin-top: 16px;
+}
+
+.add_flair_form {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.flair_sub_input,
+.flair_name_input {
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--text-color);
+}
+
+.settings_hint {
+    font-size: 13px;
+    opacity: 0.8;
+    margin-top: 4px;
+}

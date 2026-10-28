@@ -8,6 +8,7 @@ use cookie::Cookie;
 use hyper::{Body, Request, Response};
 use libflate::deflate::{Decoder, Encoder};
 use log::error;
+use percent_encoding::{percent_decode_str, percent_encode, NON_ALPHANUMERIC};
 use regex::Regex;
 use revision::revisioned;
 use rust_embed::RustEmbed;
@@ -767,6 +768,60 @@ pub fn get_filters(req: &Request<Body>) -> HashSet<String> {
 ///
 /// The first value of the return tuple is the number of posts filtered. The
 /// second return value is `true` if all posts were filtered.
+/// Encodes a flair filter key into the format: flair:<sub_lower>:<encoded_flair_lower>
+pub fn encode_flair_filter(sub: &str, flair: &str) -> String {
+	let clean_sub = sub.trim().trim_start_matches("r/").trim_start_matches('/').to_lowercase();
+	let encoded_flair = percent_encode(flair.trim().as_bytes(), NON_ALPHANUMERIC).to_string().to_lowercase();
+	format!("flair:{clean_sub}:{encoded_flair}")
+}
+
+/// Decodes a flair filter key into (subreddit, flair_text)
+pub fn decode_flair_filter(filter_str: &str) -> Option<(String, String)> {
+	if !filter_str.starts_with("flair:") {
+		return None;
+	}
+	let parts: Vec<&str> = filter_str.splitn(3, ':').collect();
+	if parts.len() == 3 {
+		let sub = parts[1].to_string();
+		let flair = percent_decode_str(parts[2]).decode_utf8_lossy().to_string();
+		Some((sub, flair))
+	} else {
+		None
+	}
+}
+
+/// Formats a flair filter key for user display
+pub fn display_flair_filter(filter_str: &str) -> String {
+	if let Some((sub, flair)) = decode_flair_filter(filter_str) {
+		if sub == "*" {
+			format!("All subreddits: \"{flair}\"")
+		} else {
+			format!("r/{sub}: \"{flair}\"")
+		}
+	} else {
+		filter_str.to_string()
+	}
+}
+
+/// Checks if a filter entry applies to a specific subreddit
+pub fn filter_is_for_sub(filter_str: &str, sub: &str) -> bool {
+	if let Some((f_sub, _)) = decode_flair_filter(filter_str) {
+		let sub_lower = sub.trim().trim_start_matches("r/").trim_start_matches('/').to_lowercase();
+		f_sub == sub_lower || f_sub == "*"
+	} else {
+		false
+	}
+}
+
+/// Extracts the human-readable flair name from a filter entry
+pub fn filter_flair_name(filter_str: &str) -> String {
+	if let Some((_, flair)) = decode_flair_filter(filter_str) {
+		flair
+	} else {
+		String::new()
+	}
+}
+
 pub fn filter_posts(posts: &mut Vec<Post>, filters: &HashSet<String>) -> (u64, bool) {
 	// This is the length of the Vec<Post> prior to applying the filter.
 	let lb: u64 = posts.len().try_into().unwrap_or(0);
@@ -774,7 +829,22 @@ pub fn filter_posts(posts: &mut Vec<Post>, filters: &HashSet<String>) -> (u64, b
 	if posts.is_empty() {
 		(0, false)
 	} else {
-		posts.retain(|p| !(filters.contains(&p.community) || filters.contains(&["u_", &p.author.name].concat())));
+		posts.retain(|p| {
+			if filters.contains(&p.community) || filters.contains(&["u_", &p.author.name].concat()) {
+				return false;
+			}
+			if !p.flair.text.is_empty() {
+				let sub_key = encode_flair_filter(&p.community, &p.flair.text);
+				let all_key = encode_flair_filter("*", &p.flair.text);
+				if filters.iter().any(|f| {
+					let f_lower = f.to_lowercase();
+					f_lower == sub_key || f_lower == all_key
+				}) {
+					return false;
+				}
+			}
+			true
+		});
 
 		// Get the length of the Vec<Post> after applying the filter.
 		// If lb > la, then at least one post was removed.

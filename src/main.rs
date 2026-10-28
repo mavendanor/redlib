@@ -320,6 +320,10 @@ async fn main() {
 	app.at("/r/:sub/unsubscribe").post(|r| subreddit::subscriptions_filters(r).boxed());
 	app.at("/r/:sub/filter").post(|r| subreddit::subscriptions_filters(r).boxed());
 	app.at("/r/:sub/unfilter").post(|r| subreddit::subscriptions_filters(r).boxed());
+	app.at("/r/:sub/filter_flair").post(|r| subreddit::filter_flair(r).boxed());
+	app.at("/r/:sub/unfilter_flair").post(|r| subreddit::unfilter_flair(r).boxed());
+	app.at("/filter_flair").post(|r| subreddit::filter_flair(r).boxed());
+	app.at("/unfilter_flair").post(|r| subreddit::unfilter_flair(r).boxed());
 
 	app.at("/r/:sub/comments/:id").get(|r| post::item(r).boxed());
 	app.at("/r/:sub/comments/:id/:title").get(|r| post::item(r).boxed());

@@ -126,15 +126,28 @@
 								</form>
 							{% else %}
 							<form action="/r/{{ sub.name }}/filter?redirect={{ redirect_url }}" method="POST">
-								<button class="filter">Filter</button>
+								<button class="filter">Filter Subreddit</button>
 							</form>
 							{% endif %}
 						</div>
-						{% if crate::utils::enable_rss() %}
-						<div id="sub_rss">
-                            <a href="/r/{{ sub.name }}.rss{% if sort.0 != "hot" %}?sort={{ sort.0 }}{% if !sort.1.is_empty() %}&t={{ sort.1 }}{% endif %}{% endif %}" title="RSS feed for r/{{ sub.name }}">
-                                <button class="subscribe">RSS feed</button >
-                            </a>
+						<div id="sub_flair_filter_section">
+							{% for f in prefs.filters %}
+								{% if crate::utils::filter_is_for_sub(f, sub.name.as_str()) %}
+									<div class="sidebar_flair_filter_row">
+										<span class="sidebar_flair_name" title="{{ f }}">Filtered: {{ crate::utils::filter_flair_name(f) }}</span>
+										<form action="/r/{{ f }}/unfilter?redirect={{ redirect_url }}" method="POST" style="display:inline;">
+											<button type="submit" class="unfilter_small" title="Remove flair filter">Unfilter</button>
+										</form>
+									</div>
+								{% endif %}
+							{% endfor %}
+							<details class="sidebar_flair_details">
+								<summary>Filter flair in r/{{ sub.name }}</summary>
+								<form action="/r/{{ sub.name }}/filter_flair?redirect={{ redirect_url }}" method="POST" class="sidebar_flair_form">
+									<input type="text" name="flair" placeholder="Flair name..." required class="sidebar_flair_input">
+									<button type="submit" class="filter">Hide</button>
+								</form>
+							</details>
 						</div>
 						{% endif %}
 				</div>

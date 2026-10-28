@@ -187,13 +187,17 @@
 	{% endif %}
 	{% if !prefs.filters.is_empty() %}
 	<div class="prefs" id="settings_filters">
-		<legend>Filtered Feeds</legend>
+		<legend>Filtered Feeds & Flairs</legend>
 		{% for sub in prefs.filters %}
 		<div>
+			{% if sub.starts_with("flair:") %}
+			<span><strong>Flair:</strong> {{ crate::utils::display_flair_filter(sub) }}</span>
+			{% else %}
 			{% let feed -%}
 			{% if sub.starts_with("u_") -%}{% let feed = format!("u/{}", &sub[2..]) -%}{% else -%}{% let feed =
 			format!("r/{}", sub) -%}{% endif -%}
 			<a href="/{{ feed }}">{{ feed }}</a>
+			{% endif %}
 			<form action="/r/{{ sub }}/unfilter/?redirect=settings" method="POST">
 				<button class="unfilter">Unfilter</button>
 			</form>
@@ -201,6 +205,15 @@
 		{% endfor %}
 	</div>
 	{% endif %}
+	<div class="prefs" id="settings_flair_filter">
+		<legend>Filter Flair by Subreddit</legend>
+		<p class="settings_hint">Hide posts that have a specific flair in a subreddit (e.g. <code>Ticos</code> and flair <code>Meme</code>):</p>
+		<form action="/filter_flair?redirect=settings" method="POST" class="add_flair_form">
+			<input type="text" name="sub" placeholder="Subreddit (e.g. Ticos)" required class="flair_sub_input">
+			<input type="text" name="flair" placeholder="Flair text (e.g. Meme)" required class="flair_name_input">
+			<button type="submit" class="filter">Filter Flair</button>
+		</form>
+	</div>
 
 	<div id="settings_note">
 		<p><b>Note:</b> settings and subscriptions are saved in browser cookies. Clearing your cookies will reset them.
