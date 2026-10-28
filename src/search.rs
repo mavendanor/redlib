@@ -50,7 +50,7 @@ struct SearchTemplate {
 }
 
 /// Regex matched against search queries to determine if they are reddit urls.
-static REDDIT_URL_MATCH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^https?://([^\./]+\.)*reddit.com/").unwrap());
+static REDDIT_URL_MATCH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:https?://)?(?:[^\./]+\.)*(?:reddit\.com|redd\.it)/").unwrap());
 
 // SERVICES
 pub async fn find(req: Request<Body>) -> Result<Response<Body>, String> {
@@ -79,6 +79,10 @@ pub async fn find(req: Request<Body>) -> Result<Response<Body>, String> {
 
 	if query.starts_with("u/") || query.starts_with("U/") {
 		return Ok(redirect(&format!("/user{}", &query[1..])));
+	}
+
+	if query.starts_with("s/") || query.starts_with("comments/") || query.starts_with("gallery/") || query.starts_with("poll/") {
+		return Ok(redirect(&format!("/{query}")));
 	}
 
 	let sub = req.param("sub").unwrap_or_default();

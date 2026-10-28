@@ -137,8 +137,8 @@ pub async fn canonical_path(path: String, tries: i8) -> Result<Option<String>, S
 		// If Reddit responds with a 2xx, then the path is already canonical.
 		200..=299 => Ok(Some(path)),
 
-		// If Reddit responds with a 301, then the path is redirected.
-		301 => match res.headers().get(wreq_header::LOCATION) {
+		// If Reddit responds with any 3xx redirect, follow the Location header.
+		300..=399 => match res.headers().get(wreq_header::LOCATION) {
 			Some(val) => {
 				let Ok(original) = val.to_str() else {
 					return Err("Unable to decode Location header.".to_string());
@@ -162,10 +162,6 @@ pub async fn canonical_path(path: String, tries: i8) -> Result<Option<String>, S
 			}
 			None => Ok(None),
 		},
-
-		// If Reddit responds with anything other than 3xx (except for the 2xx and 301
-		// as above), return a None.
-		300..=399 => Ok(None),
 
 		// Rate limiting
 		429 => Err("Too many requests.".to_string()),

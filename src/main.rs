@@ -371,6 +371,39 @@ async fn main() {
 	app.at("/info").get(|r| instance_info::instance_info(r).boxed());
 	app.at("/info.:extension").get(|r| instance_info::instance_info(r).boxed());
 
+	// Handle gallery and poll links by redirecting to /comments/:id
+	app.at("/gallery/:id").get(|req: Request<Body>| {
+		Box::pin(async move {
+			match req.param("id").as_deref() {
+				Some(id) if !id.is_empty() => Ok(redirect(&format!("/comments/{id}"))),
+				_ => error(req, "Nothing here").await,
+			}
+		})
+	});
+
+	app.at("/poll/:id").get(|req: Request<Body>| {
+		Box::pin(async move {
+			match req.param("id").as_deref() {
+				Some(id) if !id.is_empty() => Ok(redirect(&format!("/comments/{id}"))),
+				_ => error(req, "Nothing here").await,
+			}
+		})
+	});
+
+	// Handle global share links /s/:id (from Reddit mobile apps)
+	app.at("/s/:id").get(|req: Request<Body>| {
+		Box::pin(async move {
+			match req.param("id").as_deref() {
+				Some(id) if !id.is_empty() => match canonical_path(format!("/s/{id}"), 3).await {
+					Ok(Some(path)) => Ok(redirect(&path)),
+					Ok(None) => error(req, "Post ID is invalid. It may point to a post on a community that has been banned.").await,
+					Err(e) => error(req, &e).await,
+				},
+				_ => error(req, "Nothing here").await,
+			}
+		})
+	});
+
 	// Handle obfuscated share links.
 	// Note that this still forces the server to follow the share link to get to the post, so maybe this wants to be updated with a warning before it follow it
 	app.at("/r/:sub/s/:id").get(|req: Request<Body>| {
@@ -378,7 +411,7 @@ async fn main() {
 			let sub = req.param("sub").unwrap_or_default();
 			match req.param("id").as_deref() {
 				// Share link
-				Some(id) if (8..12).contains(&id.len()) => match canonical_path(format!("/r/{sub}/s/{id}"), 3).await {
+				Some(id) if !id.is_empty() => match canonical_path(format!("/r/{sub}/s/{id}"), 3).await {
 					Ok(Some(path)) => Ok(redirect(&path)),
 					Ok(None) => error(req, "Post ID is invalid. It may point to a post on a community that has been banned.").await,
 					Err(e) => error(req, &e).await,
@@ -397,7 +430,7 @@ async fn main() {
 				Some("best" | "hot" | "new" | "top" | "rising" | "controversial") => subreddit::community(req).await,
 
 				// Short link for post
-				Some(id) if (5..8).contains(&id.len()) => match canonical_path(format!("/comments/{id}"), 3).await {
+				Some(id) if (5..=16).contains(&id.len()) && id.chars().all(|c| c.is_ascii_alphanumeric()) => match canonical_path(format!("/comments/{id}"), 3).await {
 					Ok(path_opt) => match path_opt {
 						Some(path) => Ok(redirect(&path)),
 						None => error(req, "Post ID is invalid. It may point to a post on a community that has been banned.").await,
