@@ -1,7 +1,7 @@
 #![allow(clippy::cmp_owned)]
 
 use crate::utils::{
-	catch_random, decode_flair_filter, encode_flair_filter, error, filter_posts, format_num, format_url, get_filters, info, nsfw_landing, param, redirect, rewrite_urls, setting, template, to_absolute_url, val, Post,
+	catch_random, encode_flair_filter, error, filter_posts, format_num, format_url, get_filters, info, nsfw_landing, param, redirect, rewrite_urls, setting, template, to_absolute_url, val, Post,
 	Preferences, Subreddit,
 };
 use crate::{client::json, server::RequestExt, server::ResponseExt};
