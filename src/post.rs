@@ -299,7 +299,23 @@ pub async fn comment_submit(mut req: Request<Body>) -> Result<Response<Body>, St
 
 	info!("[✍️] Enviando comentario a Reddit para {}", thing_id);
 
-	match builder.body(body_str).send().await {
+	let mut resp = builder.body(body_str.clone()).send().await;
+
+	// If 401 Unauthorized, the token expired: refresh and retry once
+	if let Ok(ref r) = resp {
+		if r.status() == hyper::StatusCode::UNAUTHORIZED {
+			log::warn!("[⚠️] Token expirado (401 Unauthorized). Renovando token del poster y reintentando...");
+			if let Some(new_auth) = crate::oauth::force_refresh_poster_auth().await {
+				let mut retry_builder = CLIENT.post(url);
+				retry_builder = retry_builder.header("Authorization", &new_auth.0);
+				retry_builder = retry_builder.header("User-Agent", &new_auth.1);
+				retry_builder = retry_builder.header("Content-Type", "application/x-www-form-urlencoded");
+				resp = retry_builder.body(body_str).send().await;
+			}
+		}
+	}
+
+	match resp {
 		Ok(resp) => {
 			let status = resp.status();
 			if status.is_success() {

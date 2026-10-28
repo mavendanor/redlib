@@ -182,7 +182,13 @@ impl Oauth {
 	}
 }
 
-pub static POSTER_AUTH: LazyLock<tokio::sync::RwLock<Option<Oauth>>> = LazyLock::new(|| {
+#[derive(Clone)]
+struct PosterSession {
+	oauth: Oauth,
+	expires_at: std::time::Instant,
+}
+
+pub static POSTER_AUTH: LazyLock<tokio::sync::RwLock<Option<PosterSession>>> = LazyLock::new(|| {
 	tokio::sync::RwLock::new(None)
 });
 
@@ -198,9 +204,10 @@ pub async fn init_poster_auth() {
 		let backend = OauthBackendImpl::UserAuth(UserAuth::new(cid, sec, user, pass));
 		match Oauth::new_with_timeout_with_backend(backend).await {
 			Ok(Ok(oauth)) => {
-				info!("[✍️] Poster OAuth client initialized successfully");
+				info!("[✍️] Poster OAuth client initialized successfully (valid for {}s)", oauth.expires_in);
+				let expires_at = std::time::Instant::now() + std::time::Duration::from_secs(oauth.expires_in.saturating_sub(300));
 				let mut lock = POSTER_AUTH.write().await;
-				*lock = Some(oauth);
+				*lock = Some(PosterSession { oauth, expires_at });
 			}
 			Ok(Err(e)) => {
 				error!("[⛔] Failed to initialize Poster OAuth: {:?}", e);
@@ -215,19 +222,33 @@ pub async fn init_poster_auth() {
 pub async fn get_poster_auth() -> Option<(String, String)> {
 	{
 		let lock = POSTER_AUTH.read().await;
-		if let Some(client) = lock.as_ref() {
-			let token = client.headers_map.get("Authorization").cloned().unwrap_or_default();
-			let ua = client.user_agent().to_string();
-			return Some((token, ua));
+		if let Some(session) = lock.as_ref() {
+			if std::time::Instant::now() < session.expires_at {
+				let token = session.oauth.headers_map.get("Authorization").cloned().unwrap_or_default();
+				let ua = session.oauth.user_agent().to_string();
+				return Some((token, ua));
+			}
+			info!("[⌛] Poster OAuth token expired. Refreshing token...");
 		}
 	}
 
 	init_poster_auth().await;
 
 	let lock = POSTER_AUTH.read().await;
-	lock.as_ref().map(|client| {
-		let token = client.headers_map.get("Authorization").cloned().unwrap_or_default();
-		let ua = client.user_agent().to_string();
+	lock.as_ref().map(|session| {
+		let token = session.oauth.headers_map.get("Authorization").cloned().unwrap_or_default();
+		let ua = session.oauth.user_agent().to_string();
+		(token, ua)
+	})
+}
+
+pub async fn force_refresh_poster_auth() -> Option<(String, String)> {
+	info!("[🔄] Force refreshing poster OAuth token...");
+	init_poster_auth().await;
+	let lock = POSTER_AUTH.read().await;
+	lock.as_ref().map(|session| {
+		let token = session.oauth.headers_map.get("Authorization").cloned().unwrap_or_default();
+		let ua = session.oauth.user_agent().to_string();
 		(token, ua)
 	})
 }
