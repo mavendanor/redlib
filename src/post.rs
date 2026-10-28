@@ -303,7 +303,7 @@ pub async fn comment_submit(mut req: Request<Body>) -> Result<Response<Body>, St
 
 	// If 401 Unauthorized, the token expired: refresh and retry once
 	if let Ok(ref r) = resp {
-		if r.status() == hyper::StatusCode::UNAUTHORIZED {
+		if r.status().as_u16() == 401 {
 			log::warn!("[⚠️] Token expirado (401 Unauthorized). Renovando token del poster y reintentando...");
 			if let Some(new_auth) = crate::oauth::force_refresh_poster_auth().await {
 				let mut retry_builder = CLIENT.post(url);
