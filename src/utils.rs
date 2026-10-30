@@ -856,7 +856,10 @@ pub fn filter_posts(posts: &mut Vec<Post>, filters: &HashSet<String>) -> (u64, u
 	}
 }
 
-pub fn format_filtered_posts(num_filtered: u64, num_flair: u64, all_filtered: bool) -> String {
+pub fn format_filtered_posts(num_filtered: &u64, num_flair: &u64, all_filtered: &bool) -> String {
+	let num_filtered = *num_filtered;
+	let num_flair = *num_flair;
+	let all_filtered = *all_filtered;
 	let post_word = if num_filtered == 1 { "post was" } else { "posts were" };
 	let reason = if num_flair > 0 && num_flair == num_filtered {
 		"flair filter"
