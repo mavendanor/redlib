@@ -822,13 +822,14 @@ pub fn filter_flair_name(filter_str: &str) -> String {
 	}
 }
 
-pub fn filter_posts(posts: &mut Vec<Post>, filters: &HashSet<String>) -> (u64, bool) {
+pub fn filter_posts(posts: &mut Vec<Post>, filters: &HashSet<String>) -> (u64, u64, bool) {
 	// This is the length of the Vec<Post> prior to applying the filter.
 	let lb: u64 = posts.len().try_into().unwrap_or(0);
 
 	if posts.is_empty() {
-		(0, false)
+		(0, 0, false)
 	} else {
+		let mut flair_filtered: u64 = 0;
 		posts.retain(|p| {
 			if filters.contains(&p.community) || filters.contains(&["u_", &p.author.name].concat()) {
 				return false;
@@ -840,6 +841,7 @@ pub fn filter_posts(posts: &mut Vec<Post>, filters: &HashSet<String>) -> (u64, b
 					let f_lower = f.to_lowercase();
 					f_lower == sub_key || f_lower == all_key
 				}) {
+					flair_filtered += 1;
 					return false;
 				}
 			}
@@ -850,7 +852,23 @@ pub fn filter_posts(posts: &mut Vec<Post>, filters: &HashSet<String>) -> (u64, b
 		// If lb > la, then at least one post was removed.
 		let la: u64 = posts.len().try_into().unwrap_or(0);
 
-		(lb - la, posts.is_empty())
+		(lb - la, flair_filtered, posts.is_empty())
+	}
+}
+
+pub fn format_filtered_posts(num_filtered: u64, num_flair: u64, all_filtered: bool) -> String {
+	let post_word = if num_filtered == 1 { "post was" } else { "posts were" };
+	let reason = if num_flair > 0 && num_flair == num_filtered {
+		"flair filter"
+	} else if num_flair > 0 {
+		"filters (including flair)"
+	} else {
+		"filters"
+	};
+	if all_filtered {
+		format!("All {num_filtered} posts on this page have been hidden by {reason}")
+	} else {
+		format!("{num_filtered} {post_word} hidden by {reason}")
 	}
 }
 

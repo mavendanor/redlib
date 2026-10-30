@@ -24,6 +24,8 @@ struct UserTemplate {
 	redirect_url: String,
 	/// Whether the user themself is filtered.
 	is_filtered: bool,
+	num_posts_filtered: u64,
+	num_flair_filtered: u64,
 	/// Whether all fetched posts are filtered (to differentiate between no posts fetched in the first place,
 	/// and all fetched posts being filtered).
 	all_posts_filtered: bool,
@@ -72,6 +74,8 @@ pub async fn profile(req: Request<Body>) -> Result<Response<Body>, String> {
 			url,
 			redirect_url,
 			is_filtered: true,
+			num_posts_filtered: 0,
+			num_flair_filtered: 0,
 			all_posts_filtered: false,
 			all_posts_hidden_nsfw: false,
 			no_posts: false,
@@ -80,7 +84,7 @@ pub async fn profile(req: Request<Body>) -> Result<Response<Body>, String> {
 		// Request user posts/comments from Reddit
 		match Post::fetch(&path, false).await {
 			Ok((mut posts, after)) => {
-				let (_, all_posts_filtered) = filter_posts(&mut posts, &filters);
+				let (num_posts_filtered, num_flair_filtered, all_posts_filtered) = filter_posts(&mut posts, &filters);
 				let no_posts = posts.is_empty();
 				let all_posts_hidden_nsfw = !no_posts && (posts.iter().all(|p| p.flags.nsfw) && setting(&req, "show_nsfw") != "on");
 				Ok(template(&UserTemplate {
@@ -93,6 +97,8 @@ pub async fn profile(req: Request<Body>) -> Result<Response<Body>, String> {
 					url,
 					redirect_url,
 					is_filtered: false,
+					num_posts_filtered,
+					num_flair_filtered,
 					all_posts_filtered,
 					all_posts_hidden_nsfw,
 					no_posts,

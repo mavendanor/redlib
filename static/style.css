@@ -2289,3 +2289,29 @@ th {
     opacity: 0.8;
     margin-top: 4px;
 }
+
+.filtered_posts_indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    gap: 7px;
+    margin: 12px auto;
+    padding: 6px 14px;
+    background-color: var(--foreground);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    font-size: 13px;
+    color: var(--text-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.filtered_posts_indicator .filter_icon {
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.filtered_posts_indicator .filtered_posts_text {
+    opacity: 0.95;
+    font-weight: 500;
+}

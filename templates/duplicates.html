@@ -28,13 +28,12 @@
         {% else %}
             <div id="duplicates_msg"><h3>Duplicates</h3></div>
             {% if num_posts_filtered > 0 %}
-            <span class="listing_warn">
-                {% if all_posts_filtered %}
-                    (All posts have been filtered)
-                {% else %}
-                    (Some posts have been filtered)
-                {% endif %}
-            </span>
+            <div class="filtered_posts_indicator">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="filter_icon">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                <span class="filtered_posts_text">{{ crate::utils::format_filtered_posts(num_posts_filtered, num_flair_filtered, all_posts_filtered) }}</span>
+            </div>
             {% endif %}
 
             <div id="sort">

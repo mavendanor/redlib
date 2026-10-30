@@ -42,9 +42,16 @@ body %}
         </center>
         {% endif %} {% if no_posts %}
         <center>No posts were found.</center>
-        {% endif %} {% if all_posts_filtered %}
-        <center>(All content on this page has been filtered)</center>
-        {% else %}
+        {% endif %}
+        {% if num_posts_filtered > 0 %}
+        <div class="filtered_posts_indicator">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="filter_icon">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+            </svg>
+            <span class="filtered_posts_text">{{ crate::utils::format_filtered_posts(num_posts_filtered, num_flair_filtered, all_posts_filtered) }}</span>
+        </div>
+        {% endif %}
+        {% if !all_posts_filtered %}
         <div id="posts">
             {% for post in posts %} {% if post.flags.nsfw && prefs.show_nsfw !=
             "on" %} {% else if !post.title.is_empty() %} {% call
