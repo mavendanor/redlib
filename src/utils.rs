@@ -822,14 +822,22 @@ pub fn filter_flair_name(filter_str: &str) -> String {
 	}
 }
 
-pub fn filter_posts(posts: &mut Vec<Post>, filters: &HashSet<String>) -> (u64, u64, bool) {
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct FilteredFlairItem {
+	pub sub: String,
+	pub flair: String,
+	pub count: u64,
+}
+
+pub fn filter_posts(posts: &mut Vec<Post>, filters: &HashSet<String>) -> (u64, u64, Vec<FilteredFlairItem>, bool) {
 	// This is the length of the Vec<Post> prior to applying the filter.
 	let lb: u64 = posts.len().try_into().unwrap_or(0);
 
 	if posts.is_empty() {
-		(0, 0, false)
+		(0, 0, Vec::new(), false)
 	} else {
 		let mut flair_filtered: u64 = 0;
+		let mut flair_counts: std::collections::BTreeMap<(String, String), u64> = std::collections::BTreeMap::new();
 		posts.retain(|p| {
 			if filters.contains(&p.community) || filters.contains(&["u_", &p.author.name].concat()) {
 				return false;
@@ -842,17 +850,48 @@ pub fn filter_posts(posts: &mut Vec<Post>, filters: &HashSet<String>) -> (u64, u
 					f_lower == sub_key || f_lower == all_key
 				}) {
 					flair_filtered += 1;
+					*flair_counts.entry((p.community.clone(), p.flair.text.clone())).or_insert(0) += 1;
 					return false;
 				}
 			}
 			true
 		});
 
+		let filtered_flairs: Vec<FilteredFlairItem> = flair_counts
+			.into_iter()
+			.map(|((sub, flair), count)| FilteredFlairItem { sub, flair, count })
+			.collect();
+
 		// Get the length of the Vec<Post> after applying the filter.
 		// If lb > la, then at least one post was removed.
 		let la: u64 = posts.len().try_into().unwrap_or(0);
 
-		(lb - la, flair_filtered, posts.is_empty())
+		(lb - la, flair_filtered, filtered_flairs, posts.is_empty())
+	}
+}
+
+pub fn format_filtered_tooltip(flairs: &[FilteredFlairItem], num_filtered: &u64, num_flair: &u64) -> String {
+	let mut lines: Vec<String> = flairs
+		.iter()
+		.map(|item| {
+			if item.count > 1 {
+				format!("r/{}: {} ({})", item.sub, item.flair, item.count)
+			} else {
+				format!("r/{}: {}", item.sub, item.flair)
+			}
+		})
+		.collect();
+
+	if *num_filtered > *num_flair {
+		lines.push(format!("+ {} other filtered", *num_filtered - *num_flair));
+	}
+
+	if lines.is_empty() {
+		String::new()
+	} else {
+		format!("Hidden posts:
+{}", lines.join("
+"))
 	}
 }
 

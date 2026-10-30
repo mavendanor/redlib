@@ -2294,6 +2294,8 @@ th {
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    cursor: default;
     width: fit-content;
     gap: 7px;
     margin: 12px auto;
@@ -2304,6 +2306,7 @@ th {
     font-size: 13px;
     color: var(--text-color);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    user-select: none;
 }
 
 .filtered_posts_indicator .filter_icon {
@@ -2314,4 +2317,96 @@ th {
 .filtered_posts_indicator .filtered_posts_text {
     opacity: 0.95;
     font-weight: 500;
+}
+
+.filtered_posts_dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--background);
+    color: var(--text-color);
+    border: 1px solid var(--accent);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    min-width: 170px;
+    text-align: left;
+    pointer-events: none;
+}
+
+/* Tooltip arrow pointing up */
+.filtered_posts_dropdown::before {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: transparent transparent var(--accent) transparent;
+}
+
+.filtered_posts_dropdown::after {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px;
+    border-style: solid;
+    border-color: transparent transparent var(--background) transparent;
+}
+
+.filtered_posts_indicator:hover .filtered_posts_dropdown,
+.filtered_posts_indicator:focus-within .filtered_posts_dropdown {
+    display: block;
+}
+
+.filtered_dropdown_title {
+    font-weight: bold;
+    margin-bottom: 6px;
+    color: var(--accent);
+    border-bottom: 1px solid var(--foreground);
+    padding-bottom: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.filtered_dropdown_list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.filtered_dropdown_list li {
+    padding: 3px 0;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dropdown_sub {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.dropdown_flair {
+    background: var(--foreground);
+    color: var(--text-color);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.dropdown_count {
+    opacity: 0.75;
+    font-size: 11px;
 }

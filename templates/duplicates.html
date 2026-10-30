@@ -28,11 +28,24 @@
         {% else %}
             <div id="duplicates_msg"><h3>Duplicates</h3></div>
             {% if num_posts_filtered > 0 %}
-            <div class="filtered_posts_indicator">
+            <div class="filtered_posts_indicator" {% if !filtered_flairs.is_empty() %}title="{{ crate::utils::format_filtered_tooltip(filtered_flairs, num_posts_filtered, num_flair_filtered) }}"{% endif %}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="filter_icon">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
                 </svg>
                 <span class="filtered_posts_text">{{ crate::utils::format_filtered_posts(num_posts_filtered, num_flair_filtered, all_posts_filtered) }}</span>
+                {% if !filtered_flairs.is_empty() %}
+                <div class="filtered_posts_dropdown">
+                    <div class="filtered_dropdown_title">Hidden by flair:</div>
+                    <ul class="filtered_dropdown_list">
+                        {% for item in filtered_flairs %}
+                        <li>
+                            <span class="dropdown_sub">r/{{ item.sub }}</span>: <span class="dropdown_flair">{{ item.flair }}</span>
+                            {% if item.count > 1 %}<span class="dropdown_count">({{ item.count }})</span>{% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
             </div>
             {% endif %}
 

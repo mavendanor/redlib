@@ -3,7 +3,7 @@
 use crate::client::json;
 use crate::server::RequestExt;
 use crate::subreddit::{can_access_quarantine, quarantine};
-use crate::utils::{error, filter_posts, get_filters, nsfw_landing, parse_post, template, Post, Preferences};
+use crate::utils::{error, filter_posts, get_filters, nsfw_landing, parse_post, template, FilteredFlairItem, Post, Preferences};
 
 use askama::Template;
 use hyper::{Body, Request, Response};
@@ -45,6 +45,7 @@ struct DuplicatesTemplate {
 	/// duplicates list.
 	num_posts_filtered: u64,
 	num_flair_filtered: u64,
+	filtered_flairs: Vec<FilteredFlairItem>,
 
 	/// all_posts_filtered is true if every duplicate was filtered. This is an
 	/// edge case but can still happen.
@@ -77,7 +78,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 			}
 
 			let filters = get_filters(&req);
-			let (duplicates, num_posts_filtered, num_flair_filtered, all_posts_filtered) = parse_duplicates(&response[1], &filters).await;
+			let (duplicates, num_posts_filtered, num_flair_filtered, filtered_flairs, all_posts_filtered) = parse_duplicates(&response[1], &filters).await;
 
 			// These are the values for the "before=", "after=", and "sort="
 			// query params, respectively.
@@ -206,6 +207,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 				url: req_url,
 				num_posts_filtered,
 				num_flair_filtered,
+				filtered_flairs,
 				all_posts_filtered,
 			}))
 		}
@@ -223,7 +225,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 }
 
 // DUPLICATES
-async fn parse_duplicates(json: &Value, filters: &HashSet<String>) -> (Vec<Post>, u64, u64, bool) {
+async fn parse_duplicates(json: &Value, filters: &HashSet<String>) -> (Vec<Post>, u64, u64, Vec<FilteredFlairItem>, bool) {
 	let post_duplicates: &Vec<Value> = &json["data"]["children"].as_array().map_or(Vec::new(), ToOwned::to_owned);
 	let mut duplicates: Vec<Post> = Vec::new();
 
@@ -233,6 +235,6 @@ async fn parse_duplicates(json: &Value, filters: &HashSet<String>) -> (Vec<Post>
 		duplicates.push(post);
 	}
 
-	let (num_posts_filtered, num_flair_filtered, all_posts_filtered) = filter_posts(&mut duplicates, filters);
-	(duplicates, num_posts_filtered, num_flair_filtered, all_posts_filtered)
+	let (num_posts_filtered, num_flair_filtered, filtered_flairs, all_posts_filtered) = filter_posts(&mut duplicates, filters);
+	(duplicates, num_posts_filtered, num_flair_filtered, filtered_flairs, all_posts_filtered)
 }
